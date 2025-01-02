@@ -9,9 +9,6 @@ void domination() {
   demineer = false;
   bool buttonReleasedAfterAction = true;
 
- // digitalWrite(REDLED, LOW);
- // digitalWrite(GREENLED, LOW);
-
   unsigned long gameStartTime = millis();
   unsigned long gameEndTime = gameStartTime + (unsigned long)GAMEMINUTES * 60 * 1000;
 
@@ -35,10 +32,8 @@ void domination() {
 
   while (true) {
     unsigned long currentMillis = millis();
-    unsigned long elapsed = currentMillis - gameStartTime;
 
-    handleBlinking(gameEndTime - gameStartTime, elapsed);
-
+    // Keypad Input
     char key = keypad.getKey();
     if (key) {
       if (dominationMode) {
@@ -51,31 +46,31 @@ void domination() {
 
     updateTeamTime(team1Zone, team2Zone, team1TotalTime, team2TotalTime, lastUpdateTime, neutralZone);
 
-    // Handle Team 1 actions
+    // Handle Team 1 Actions
     if (key == 'c' && demineer) {
       if (buttonReleasedAfterAction) {
         if (team1Zone) {
-          printLCDFlash(F("Already Active"), nullptr);
+          printLCDFlash("Already Active", nullptr);
           delay(800);
         } else if (team2Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
         } else if (neutralZone) {
-          handleZoneLogic(true, false, team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
+          handleZoneLogic(true, false, "Yellow", team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
         }
         buttonReleasedAfterAction = false;
       }
     }
 
-    // Handle Team 2 actions
+    // Handle Team 2 Actions
     if (key == 'd' && demineer) {
       if (buttonReleasedAfterAction) {
         if (team2Zone) {
-          printLCDFlash(F("Already Active"), nullptr);
+          printLCDFlash("Already Active", nullptr);
           delay(800);
         } else if (team1Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
         } else if (neutralZone) {
-          handleZoneLogic(false, true, team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
+          handleZoneLogic(false, true, "Blue", team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
         }
         buttonReleasedAfterAction = false;
       }
@@ -83,28 +78,32 @@ void domination() {
 
     if (!demineer) buttonReleasedAfterAction = true;
 
+    // LCD Update
     if (currentMillis - lastLCDUpdate >= lcdUpdateInterval) {
       lastLCDUpdate = currentMillis;
 
       if (neutralZone) {
-        printLCDFlash(F("Neutral Zone"), nullptr);
+        printLCDFlash("Neutral Zone", nullptr);
         printTimeToLCD((gameEndTime > currentMillis) ? (gameEndTime - currentMillis) : 0, 1);
         ringNeutralBlinking = true;
         ring1Blinking = false;
         ring2Blinking = false;
-      } else if (team1Zone) {
+      } else {
         displayTeamActiveTime(team1Zone, team2Zone, team1TotalTime, team2TotalTime, neutralZone);
-        ring1Blinking = true;
-        ringNeutralBlinking = false;
-        ring2Blinking = false;
-      } else if (team2Zone) {
-        displayTeamActiveTime(team1Zone, team2Zone, team1TotalTime, team2TotalTime, neutralZone);
-        ring2Blinking = true;
-        ringNeutralBlinking = false;
-        ring1Blinking = false;      }
+        ring1Blinking = team1Zone;
+        ring2Blinking = team2Zone;
+        ringNeutralBlinking = neutralZone;
+      }
     }
+    
+    // Call blinking logic
+    handleBlinking(gameEndTime - gameStartTime, currentMillis - gameStartTime);
 
+    // End Game Logic
     if (currentMillis >= gameEndTime) {
+      activateMosfet_2();
+      printLCDFlash(F("Times Up!"), F("Game Over!"));
+      delay(5000);
       ring1.clear();
       ring1.show();
       ring2.clear();
@@ -149,7 +148,7 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       ring2.clear();
       ring2.show();
 
-      printLCDFlash(F("Neutral Reset!"), nullptr);
+      printLCDFlash("Neutral Reset!", nullptr);
       delay(800);
 
       if (team1Zone) {
@@ -170,10 +169,10 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       drawNativeLCDProgressBar(percent);
       //sendBlynkProgressBar(percent);
       if (activeRing == &ring1) {
-        armingAnimationLEDRing(ring2, startTime, armingTimeMillis);  // Update LED animation
+        armAnimaLEDRingW(ring2, startTime, armingTimeMillis);  // Update LED animation
       }
       if (activeRing == &ring2) {
-        armingAnimationLEDRing(ring1, startTime, armingTimeMillis);  // Update LED animation
+        armAnimaLEDRingW(ring1, startTime, armingTimeMillis);  // Update LED animation
       }
       lastBarUpdateTime = currentMillis;
     }
@@ -188,7 +187,7 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       ring2Blinking = false;
       ringNeutralBlinking = true;
 
-      printLCDFlash(F("Neutral Zone"), nullptr);
+      printLCDFlash("Neutral Zone", nullptr);
       return;
     }
 
@@ -197,9 +196,11 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
 }
 
 // Handle Zone Logic (for capturing)
-void handleZoneLogic(bool activateTeam1, bool activateTeam2, bool& team1Zone, bool& team2Zone, bool& neutralZone, unsigned long& zoneStartTime, unsigned long& teamTotalTime) {
-  printLCDFlash(F("Arming Zone"), nullptr);
+void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamName, bool& team1Zone, bool& team2Zone, bool& neutralZone, unsigned long& zoneStartTime, unsigned long& teamTotalTime) {
+  char armingMessage[17];
+  snprintf(armingMessage, sizeof(armingMessage), "%s Arming", teamName);
 
+  printLCDFlash(armingMessage, nullptr);  // Use the dynamic message for LCD
   ring1.clear();
   ring1.show();
   ring2.clear();
@@ -227,7 +228,7 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, bool& team1Zone, bo
       ring2.clear();
       ring2.show();
 
-      printLCDFlash(F("Arming Reset!"), nullptr);
+      printLCDFlash("Arming Reset!", nullptr);
       delay(800);
       return;
     }
@@ -240,12 +241,11 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, bool& team1Zone, bo
     if (currentMillis - lastBarUpdateTime >= 50) {
       lcd.setCursor(0, 1);
       drawNativeLCDProgressBar(percent);
-      //sendBlynkProgressBar(percent);
-      if (activeRing == &ring1) {
-        disarmAnimationLEDRing(ring1, startTime, armingTimeMillis);  // Update LED animation
+      if (activateTeam1) {
+        armAnimaLEDRingY(ring1, startTime, armingTimeMillis);  // Yellow animation for Team 1
       }
-      if (activeRing == &ring2) {
-        disarmAnimationLEDRing(ring2, startTime, armingTimeMillis);  // Update LED animation
+      if (activateTeam2) {
+        armAnimaLEDRingB(ring2, startTime, armingTimeMillis);  // Blue animation for Team 2
       }
       lastBarUpdateTime = currentMillis;
     }
@@ -263,7 +263,7 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, bool& team1Zone, bo
         ring2Blinking = false;
         ringNeutralBlinking = false;
 
-        printLCDFlash(F("Yellow Zone"), nullptr);
+        printLCDFlash("Yellow Zone", nullptr);
       } else if (activateTeam2) {
         team2Zone = true;
         team1Zone = false;
@@ -274,7 +274,7 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, bool& team1Zone, bo
         ring1Blinking = false;
         ringNeutralBlinking = false;
 
-        printLCDFlash(F("Blue Zone"), nullptr);
+        printLCDFlash("Blue Zone", nullptr);
       }
       return;
     }

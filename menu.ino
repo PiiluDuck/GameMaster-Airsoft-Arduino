@@ -184,10 +184,6 @@ void configQuickGame() {
     menuPrincipal();
     return;
   }
-  if (sdStatus && !configureMosfet()) {
-    menuPrincipal();
-    return;
-  }
 }
 
 // Configuration menu
@@ -209,7 +205,7 @@ void config() {
         i++;
         printLCDFromPROGMEM(configItems[i]);
       } else if (var == BT_CANCEL || var == BT_EXIT) {
-        return;   // Exit config menu
+        return;  // Exit config menu
       } else if (var == BT_SEL) {
         switch (i) {
           case 0:  // Test Sound
@@ -219,15 +215,24 @@ void config() {
             break;
 
           case 1:  // Test Mosfet
-            printLCDFlash(F("Testing Mosfet"), F(""));
+            printLCDFlash(F("Testing Mosfet 1"), F(""));
             mosfetEnable = true;
-            activateMosfet();
-            printLCDFlash(F("Mosfet OFF"), F(""));
+            activateMosfet_1();
+            printLCDFlash(F("Mosfet 1 OFF"), F(""));
             mosfetEnable = false;
             delay(2000);
             break;
 
-          case 2:  // Back to Menu
+          case 2:  // Test Mosfet
+            printLCDFlash(F("Testing Mosfet 2"), F(""));
+            mosfetEnable = true;
+            activateMosfet_2();
+            printLCDFlash(F("Mosfet 2 OFF"), F(""));
+            mosfetEnable = false;
+            delay(2000);
+            break;
+
+          case 3:  // Back to Menu
             return;
         }
       }
@@ -266,8 +271,7 @@ bool configureGameTime() {
     }
 
     // Calculate total game time in minutes
-    unsigned int totalMinutes = ((timeInput[0] - '0') * 10 * 60 + (timeInput[1] - '0') * 60) +
-                                 ((timeInput[3] - '0') * 10 + (timeInput[4] - '0'));
+    unsigned int totalMinutes = ((timeInput[0] - '0') * 10 * 60 + (timeInput[1] - '0') * 60) + ((timeInput[3] - '0') * 10 + (timeInput[4] - '0'));
     GAMEMINUTES = totalMinutes;
 
     // Format confirmation message
@@ -335,30 +339,9 @@ bool configureArmingTime() {
       return true;  // User confirmed
     } else {
       strcpy(timeInput, "00:00:00");  // Reset time input on decline
-      cursorIndex = 6;  // Reset cursor to seconds
+      cursorIndex = 6;                // Reset cursor to seconds
     }
   }
-}
-
-// Mosfet Configuration
-bool configureMosfet() {
-  printLCDFlash(F("Enable Explosion?"), F("A: Yes B: No"));
-
-  while (true) {
-    char var = keypad.getKey();
-    if (var == 'a') {
-      mosfetEnable = true;
-      tone(tonepin, 2400, 30);
-      delay(500);
-      break;
-    } else if (var == 'b') {
-      mosfetEnable = false;
-      tone(tonepin, 2400, 30);
-      delay(500);
-      break;
-    }
-  }
-  return true;
 }
 
 // Sound Configuration

@@ -1,15 +1,14 @@
 void formatTimeFull(unsigned long timeMillis, char* buffer, size_t bufferSize, bool includeMillis = true);
 //void updateRedLED(unsigned long refTime);
 //void updateGreenLED(unsigned long refTime);
-void playBuzzer(int frequency, unsigned long interval, bool twoPeeps = false);
 
 // Before Bomb is Armed
 void search() {
   demineer = false;
   searchAndDestroyMode = true;
   buttonHeld = false;
- // digitalWrite(REDLED, LOW);
- // digitalWrite(GREENLED, LOW);
+  // digitalWrite(REDLED, LOW);
+  // digitalWrite(GREENLED, LOW);
 
   unsigned long totalTimeMillis = (unsigned long)GAMEMINUTES * 60 * 1000;  // Total game time in milliseconds
   unsigned long startTime = millis();
@@ -45,11 +44,21 @@ void search() {
 
     handleBlinking(totalTimeMillis, elapsed);
 
+    // Last minute logic: peep every 3 seconds
+    if (remainingTime <= 60000) {  // Last minute
+      static unsigned long lastPeepTime = 0;
+      if (millis() - lastPeepTime >= 3000) {  // 3-second interval
+        tone(tonepin, tonoAlarm1, 100);       // Peep for 100ms
+        lastPeepTime = millis();
+      }
+    }
+
     // End game if time is up
     if (remainingTime == 0) {
+      mosfetEnable = true;
+      activateMosfet_2();
       printLCDFlash(F("Game Over!"), F("Time Expired!"));
       delay(5000);
-      if (mosfetEnable) activateMosfet();
       ring1.clear();
       ring1.show();
       ring2.clear();
@@ -115,8 +124,9 @@ void destroy() {
 
     // Trigger explosion if time is up
     if (remainingTime == 0) {
+      mosfetEnable = true;
+      activateMosfet_1();
       printLCDFlash(F("Bomb Exploded!"), F("Time Expired!"));
-      if (mosfetEnable) activateMosfet();
       delay(5000);
       ring1.clear();
       ring1.show();
@@ -168,8 +178,6 @@ void handleArmingLogic() {
     armingAnimationLEDRing(ring2, startTime, armingTimeMillis);
     percent = updateProgressBar(startTime, armingTimeMillis);
 
-    playBuzzer(tonoAlarm1, 1000, true);
-
     static unsigned long lastBarUpdateTime = 0;
     if (currentMillis - lastBarUpdateTime >= 50) {
       lcd.setCursor(0, 1);
@@ -209,12 +217,11 @@ void handleDisarmingLogic(int minut, unsigned long iTime) {
 
     unsigned long currentMillis = millis();
 
-   // updateGreenLED(startTime);
+    // updateGreenLED(startTime);
     disarmAnimationLEDRing(ring1, startTime, disarmingTimeMillis);
     disarmAnimationLEDRing(ring2, startTime, disarmingTimeMillis);
     percent = updateProgressBar(startTime, disarmingTimeMillis);
 
-    playBuzzer(tonoAlarm1, 1000, true);
 
     static unsigned long lastBarUpdateTime = 0;
     if (currentMillis - lastBarUpdateTime >= 50) {
@@ -225,6 +232,10 @@ void handleDisarmingLogic(int minut, unsigned long iTime) {
     }
 
     if (percent >= 100) {
+      mosfetEnable = true;
+      activateMosfet_2();
+      printLCDFlash(F("Bomb Disarmed!"), F("Game Over!"));
+      delay(5000);
       ring1.clear();
       ring1.show();
       ring2.clear();

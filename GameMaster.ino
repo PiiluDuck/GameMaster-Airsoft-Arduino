@@ -1,3 +1,4 @@
+
 #include <limits.h>
 #include <Wire.h>
 #include <Keypad.h>
@@ -63,7 +64,8 @@ const char menuItems[][17] PROGMEM = {
 };
 const char configItems[][17] PROGMEM = {
   "Test Sound",
-  "Test Mosfet",
+  "Test Mosfet 1",
+  "Test Mosfet 2",
   "Back to Menu"
 };
 // State Variables
