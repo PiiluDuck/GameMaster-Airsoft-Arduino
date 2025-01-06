@@ -1,111 +1,143 @@
+extern GameData lastGameData;
+
 // Domination Splash
 void dominationSplash(unsigned long team1Time, unsigned long team2Time) {
   char timeBuffer1[9], timeBuffer2[9];
   formatTimeFull(team1Time, timeBuffer1, sizeof(timeBuffer1), false);
   formatTimeFull(team2Time, timeBuffer2, sizeof(timeBuffer2), false);
 
-  const char* winner = team1Time > team2Time ? "YELLOW TEAM" : team2Time > team1Time ? "BLUE TEAM" : "TIE";
+  const char* winner = team1Time > team2Time ? "YELLOW TEAM" : team2Time > team1Time ? "BLUE TEAM"
+                                                                                     : "TIE";
 
-  // Initial display for 5 seconds
+  lastSplash = DOMINATION_SPLASH;
+  lastGameData.team1Time = team1Time;
+  lastGameData.team2Time = team2Time;
+  lastGameData.winner = winner;
+
+  // Initial display for 8 seconds
   unsigned long startMillis = millis();
-  while (millis() - startMillis < 5000) {
+  while (millis() - startMillis < 8000) {
     printLCDFlashWithBuffers(F("Y:"), timeBuffer1, F("B:"), timeBuffer2);
     delay(2000);
     printLCDFlash(F("WINNER"), winner);
     delay(2000);
   }
-
-  // Infinite loop waiting for user input
-  while (true) {
-    printLCDFlashWithBuffers(F("Y:"), timeBuffer1, F("B:"), timeBuffer2);
-    delay(2000);
-    printLCDFlash(F("WINNER"), winner);
-    delay(2000);
-    waitForDecision();
-  }
+  handleDecision();  // Centralized decision handling
 }
 
 // Disarmed Splash
 void disarmedSplash() {
-  // Initial display for 5 seconds
-  unsigned long startMillis = millis();
-  while (millis() - startMillis < 5000) {
-    printLCDFlash(F("BOMB DISARMED"), F("GOODS WIN"));
-    delay(4000);
-  }
 
-  // Infinite loop waiting for user input
-  while (true) {
-    printLCDFlash(F("BOMB DISARMED"), F("GOODS WIN"));
-    delay(4000);
-    waitForDecision();
-  }
+  lastSplash = DISARMED_SPLASH;
+
+  printLCDFlash(F("BOMB DISARMED"), F("GOODS WIN"));
+  delay(5000);
+  handleDecision();  // Centralized decision handling
 }
 
 // Explode Splash
 void explodeSplash() {
-  // Initial display for 5 seconds
-  unsigned long startMillis = millis();
-  while (millis() - startMillis < 5000) {
-    printLCDFlash(F("TERRORISTS WIN"), F("GAME OVER"));
-    delay(4000);
-  }
 
-  // Infinite loop waiting for user input
-  while (true) {
-    printLCDFlash(F("TERRORISTS WIN"), F("GAME OVER"));
-    delay(4000);
-    waitForDecision();
-  }
+  lastSplash = EXPLODE_SPLASH;
+
+  printLCDFlash(F("TERRORISTS WIN"), F("GAME OVER"));
+  delay(5000);
+  handleDecision();  // Centralized decision handling
 }
+
 
 // End Splash
 void endSplash() {
   // Initial display for 5 seconds
-  unsigned long startMillis = millis();
-  while (millis() - startMillis < 5000) {
-    printLCDFlash(F("TIME OVER"), F("GOODS WIN"));
-    delay(4000);
-  }
+  lastSplash = END_SPLASH;
 
-  // Infinite loop waiting for user input
-  while (true) {
-    printLCDFlash(F("TIME OVER"), F("GOODS WIN"));
-    delay(4000);
-    waitForDecision();
-  }
+  printLCDFlash(F("TIME OVER"), F("GOODS WIN"));
+  delay(5000);
+  handleDecision();  // Centralized decision handling
 }
 
 // Helper Function to Wait for Decisions
-void waitForDecision() {
+void handleDecision() {
   while (true) {
-    char var = keypad.getKey();
-    if (var == 'a') {  // Play Again
-      tone(tonepin, 2400, 30);
+    // Display the appropriate splash cycling logic
+    switch (lastSplash) {
+      case END_SPLASH:
+        printLCDFlash(F("TIME OVER"), F("GOODS WIN"));
+        delay(4000);
+        break;
 
-      resetGameState();  // Reset states
+      case DOMINATION_SPLASH:
+        {
+          char timeBuffer1[9], timeBuffer2[9];
+          formatTimeFull(lastGameData.team1Time, timeBuffer1, sizeof(timeBuffer1), false);
+          formatTimeFull(lastGameData.team2Time, timeBuffer2, sizeof(timeBuffer2), false);
 
-      if (sdStatus) {
-        configQuickGame();
+          printLCDFlashWithBuffers(F("Y:"), timeBuffer1, F("B:"), timeBuffer2);
+          delay(2000);
+          printLCDFlash(F("WINNER"), lastGameData.winner);
+          delay(2000);
+          break;
+        }
+
+      case DISARMED_SPLASH:
+        printLCDFlash(F("BOMB DISARMED"), F("GOODS WIN"));
+        delay(4000);
+        break;
+
+      case EXPLODE_SPLASH:
+        printLCDFlash(F("TERRORISTS WIN"), F("GAME OVER"));
+        delay(4000);
+        break;
+
+      default:
+        return;  // Exit if no valid splash type
+    }
+
+    // Check for user decision
+    char decision = checkForDecision();
+    if (decision == 'a') {  // Play Again
+      resetGameState();
+
+      // Restore last game settings
+      GAMEMINUTES = lastGameSettings.gameTime;
+      BOMBMINUTES = lastGameSettings.bombTime;
+      ACTIVATESECONDS = lastGameSettings.armingTime;
+      soundEnable = lastGameSettings.soundEnabled;
+
+      if (lastGameMode == 0) {  // Restart Search & Destroy
+        sdStatus = true;
+        searchAndDestroyMode = true;
         startGameCount();
         search();
-      } else if (doStatus) {
-        configQuickGame();
+      } else if (lastGameMode == 1) {  // Restart Domination
+        doStatus = true;
+        dominationMode = true;
         startGameCount();
         domination();
       }
       return;
-    } else if (var == 'b') {  // Exit to Main Menu
-      tone(tonepin, 2400, 30);
-
-      resetGameState();  // Reset all states
+    } else if (decision == 'b') {  // Exit to Main Menu
+      resetGameState();
+      lastGameMode = -1;  // Clear last game mode
       printLCDFlash(F("Goodbye!"), F(""));
       delay(2000);
-
-      menuPrincipal();  // Redirect to the main menu
+      menuPrincipal();
       return;
     }
   }
+}
+
+//Waits for keypress under handleDecision
+char checkForDecision() {
+  char var = keypad.getKey();
+  if (var == 'a') {  // Play Again
+    tone(tonepin, 2400, 30);
+    return 'a';
+  } else if (var == 'b') {  // Exit to Main Menu
+    tone(tonepin, 2400, 30);
+    return 'b';
+  }
+  return '\0';  // No decision yet
 }
 
 // Reset Game State
@@ -130,4 +162,5 @@ void resetGameState() {
   tonePlayedForC = false;
   tonePlayedForD = false;
   lastBuzzerTime = 0;
+  lastSplash = NONE;
 }

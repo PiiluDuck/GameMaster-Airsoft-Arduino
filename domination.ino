@@ -1,3 +1,6 @@
+void printLCDFlash(const __FlashStringHelper* line1, const char* line2);
+void printLCDFlash(const char* line1, const char* line2);
+void printTimeToLCD(unsigned long timeMillis, int row);
 void formatTimeFull(unsigned long timeMillis, char* buffer, size_t bufferSize, bool includeMillis = true);
 //void updateRedLED(unsigned long refTime);
 //void updateGreenLED(unsigned long refTime);
@@ -50,7 +53,7 @@ void domination() {
     if (key == 'c' && demineer) {
       if (buttonReleasedAfterAction) {
         if (team1Zone) {
-          printLCDFlash("Already Active", nullptr);
+          printLCDFlash("Already Active", (const char*)nullptr);
           delay(800);
         } else if (team2Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
@@ -65,7 +68,7 @@ void domination() {
     if (key == 'd' && demineer) {
       if (buttonReleasedAfterAction) {
         if (team2Zone) {
-          printLCDFlash("Already Active", nullptr);
+          printLCDFlash("Already Active", (const char*)nullptr);
           delay(800);
         } else if (team1Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
@@ -83,31 +86,34 @@ void domination() {
       lastLCDUpdate = currentMillis;
 
       if (neutralZone) {
-        printLCDFlash("Neutral Zone", nullptr);
+        printLCDFlash("Neutral Zone", (const char*)nullptr);
         printTimeToLCD((gameEndTime > currentMillis) ? (gameEndTime - currentMillis) : 0, 1);
         ringNeutralBlinking = true;
         ring1Blinking = false;
         ring2Blinking = false;
       } else {
-        displayTeamActiveTime(team1Zone, team2Zone, team1TotalTime, team2TotalTime, neutralZone);
+        // Active Zone Display
+        displayTeamActiveTime(team1Zone, team2Zone, team1TotalTime, team2TotalTime, neutralZone, gameEndTime);
+
+        // Update LED Blinking States
         ring1Blinking = team1Zone;
         ring2Blinking = team2Zone;
         ringNeutralBlinking = neutralZone;
       }
     }
-    
     // Call blinking logic
     handleBlinking(gameEndTime - gameStartTime, currentMillis - gameStartTime);
 
     // End Game Logic
     if (currentMillis >= gameEndTime) {
-      activateMosfet_2();
-      printLCDFlash(F("Times Up!"), F("Game Over!"));
-      delay(5000);
       ring1.clear();
       ring1.show();
       ring2.clear();
       ring2.show();
+      printLCDFlash(F("Times Up!"), F("Game Over!"));
+      mosfetEnable = true;
+      activateMosfet_2();
+      delay(10000);
       dominationSplash(team1TotalTime, team2TotalTime);
       dominationMode = false;
       return;
@@ -148,14 +154,9 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       ring2.clear();
       ring2.show();
 
-      printLCDFlash("Neutral Reset!", nullptr);
+      printLCDFlash("Neutral Reset!", (const char*)nullptr);
       delay(800);
 
-      if (team1Zone) {
-        printLCDFlash(F("Yellow Zone"), "");
-      } else if (team2Zone) {
-        printLCDFlash(F("Blue Zone"), "");
-      }
       return;
     }
 
@@ -187,7 +188,6 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       ring2Blinking = false;
       ringNeutralBlinking = true;
 
-      printLCDFlash("Neutral Zone", nullptr);
       return;
     }
 
@@ -200,7 +200,7 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamNam
   char armingMessage[17];
   snprintf(armingMessage, sizeof(armingMessage), "%s Arming", teamName);
 
-  printLCDFlash(armingMessage, nullptr);  // Use the dynamic message for LCD
+  printLCDFlash(armingMessage, (const char*)nullptr);  // Use the dynamic message for LCD
   ring1.clear();
   ring1.show();
   ring2.clear();
@@ -228,7 +228,7 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamNam
       ring2.clear();
       ring2.show();
 
-      printLCDFlash("Arming Reset!", nullptr);
+      printLCDFlash("Arming Reset!", (const char*)nullptr);
       delay(800);
       return;
     }
@@ -262,8 +262,6 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamNam
         ring1Blinking = true;
         ring2Blinking = false;
         ringNeutralBlinking = false;
-
-        printLCDFlash("Yellow Zone", nullptr);
       } else if (activateTeam2) {
         team2Zone = true;
         team1Zone = false;
@@ -273,11 +271,53 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamNam
         ring2Blinking = true;
         ring1Blinking = false;
         ringNeutralBlinking = false;
-
-        printLCDFlash("Blue Zone", nullptr);
       }
+
+      // Zone captured; let the main logic handle updates and display
       return;
     }
     delay(50);
+  }
+}
+
+void displayTeamActiveTime(bool team1Zone, bool team2Zone, unsigned long team1Time, unsigned long team2Time, bool neutralZone, unsigned long gameEndTime) {
+  static unsigned long lastToggleTime = millis();  // Track the last toggle time
+  static bool showCaptureTime = true;             // Toggle state between capture and remaining time
+  unsigned long currentMillis = millis();
+
+  // Alternate between "Capture Time" and "Remaining Time" every 2 seconds
+  if (currentMillis - lastToggleTime >= 2000) {
+    showCaptureTime = !showCaptureTime;
+    lastToggleTime = currentMillis;
+  }
+
+  char team1Buffer[9];
+  char team2Buffer[9];
+  formatTimeFull(team1Time, team1Buffer, sizeof(team1Buffer), false);
+  formatTimeFull(team2Time, team2Buffer, sizeof(team2Buffer), false);
+
+  char remainingBuffer[9];
+  unsigned long remainingTime = (gameEndTime > currentMillis) ? (gameEndTime - currentMillis) : 0;
+  formatTimeFull(remainingTime, remainingBuffer, sizeof(remainingBuffer), false);
+
+  if (neutralZone) {
+    // Neutral Zone Display
+    printLCDFlash(F("Neutral Zone"), remainingBuffer);
+  } else if (team1Zone) {
+    if (showCaptureTime) {
+      // Display Team 1 Capture Time
+      printLCDFlash(F("Yellow Active"), team1Buffer);
+    } else {
+      // Display Remaining Game Time
+      printLCDFlash(F("Remaining Time"), remainingBuffer);
+    }
+  } else if (team2Zone) {
+    if (showCaptureTime) {
+      // Display Team 2 Capture Time
+      printLCDFlash(F("Blue Active"), team2Buffer);
+    } else {
+      // Display Remaining Game Time
+      printLCDFlash(F("Remaining Time"), remainingBuffer);
+    }
   }
 }

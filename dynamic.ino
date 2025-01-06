@@ -1,11 +1,11 @@
 // Convert __FlashStringHelper* to const char* for printing
 const char* flashToCString(const __FlashStringHelper* flashString) {
-  static char buffer[17]; // Static buffer to persist after function returns
+  static char buffer[17];  // Static buffer to persist after function returns
   if (flashString) {
     strncpy_P(buffer, (PGM_P)flashString, sizeof(buffer) - 1);
-    buffer[sizeof(buffer) - 1] = '\0'; // Null-terminate
+    buffer[sizeof(buffer) - 1] = '\0';  // Null-terminate
   } else {
-    buffer[0] = '\0'; // Empty string for nullptr
+    buffer[0] = '\0';  // Empty string for nullptr
   }
   return buffer;
 }
@@ -77,7 +77,7 @@ void printLCDFlash(const String& line1, const String& line2 = "") {
 
 
 // printLCDFlashWithBuffers Function
-void printLCDFlashWithBuffers(const __FlashStringHelper* label1 = nullptr, const char* buffer1 = nullptr, 
+void printLCDFlashWithBuffers(const __FlashStringHelper* label1 = nullptr, const char* buffer1 = nullptr,
                               const __FlashStringHelper* label2 = nullptr, const char* buffer2 = nullptr) {
   lcd.clear();
 
@@ -103,7 +103,7 @@ void printLCDFromPROGMEM(const char* progMemStr, const char* line2 = nullptr) {
 
   if (progMemStr) {
     strncpy_P(buffer, progMemStr, sizeof(buffer) - 1);
-    buffer[sizeof(buffer) - 1] = '\0'; // Null-terminate
+    buffer[sizeof(buffer) - 1] = '\0';  // Null-terminate
     lcd.setCursor(0, 0);
     lcd.print(buffer);
   }
@@ -136,12 +136,12 @@ void truncateTimeForLCD(const char* fullTime, char* lcdTime, size_t lcdBufferSiz
 
 // Print time in hh:mm:ss:ms format on the specified LCD row, updating only once per second
 void printTimeToLCD(unsigned long timeMillis, int row) {
-  static unsigned long lastUpdateTime = 0; // Track the last update time
+  static unsigned long lastUpdateTime = 0;  // Track the last update time
   unsigned long currentMillis = millis();
 
   // Only update the LCD if 1 second has passed since the last update
   if (currentMillis - lastUpdateTime >= 1000) {
-    lastUpdateTime = currentMillis; // Update the last refresh time
+    lastUpdateTime = currentMillis;  // Update the last refresh time
 
     char fullTimeBuffer[20];
     char lcdTimeBuffer[17];
@@ -151,6 +151,10 @@ void printTimeToLCD(unsigned long timeMillis, int row) {
 
     lcd.setCursor(0, row);
     lcd.print(lcdTimeBuffer);
+
+    // Send the time to the ESP
+    //Serial.print("TIMER:");
+    //Serial.println(fullTimeBuffer);
   }
 }
 

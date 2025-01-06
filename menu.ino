@@ -140,7 +140,8 @@ void menuPrincipal() {
 
         // Call appropriate functions based on selection
         switch (i) {
-          case 0:  // Search & Destroy
+          case 0:              // Search & Destroy
+            lastGameMode = 0;  // Set last game mode
             sdStatus = true;
             doStatus = false;
             configQuickGame();
@@ -148,7 +149,8 @@ void menuPrincipal() {
             search();
             sdStatus = false;
             break;
-          case 1:  // Domination
+          case 1:              // Domination
+            lastGameMode = 1;  // Set last game mode
             doStatus = true;
             sdStatus = false;
             configQuickGame();
@@ -172,18 +174,27 @@ void configQuickGame() {
     menuPrincipal();
     return;
   }
+  lastGameSettings.gameTime = GAMEMINUTES;  // Save game time
+
   if (sdStatus && !configureBombTime()) {
     menuPrincipal();
     return;
   }
+  if (sdStatus) {
+    lastGameSettings.bombTime = BOMBMINUTES;  // Save bomb time
+  }
+
   if (!configureArmingTime()) {
     menuPrincipal();
     return;
   }
+  lastGameSettings.armingTime = ACTIVATESECONDS;  // Save arming time
+
   if (!configureSound()) {
     menuPrincipal();
     return;
   }
+  lastGameSettings.soundEnabled = soundEnable;  // Save sound setting
 }
 
 // Configuration menu

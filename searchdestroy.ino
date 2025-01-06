@@ -55,14 +55,14 @@ void search() {
 
     // End game if time is up
     if (remainingTime == 0) {
-      mosfetEnable = true;
-      activateMosfet_2();
-      printLCDFlash(F("Game Over!"), F("Time Expired!"));
-      delay(5000);
       ring1.clear();
       ring1.show();
       ring2.clear();
       ring2.show();
+      printLCDFlash(F("Game Over!"), F("Time Expired!"));
+            mosfetEnable = true;
+      activateMosfet_2();
+      delay(10000);
       endSplash();
       return;
     }
@@ -124,14 +124,14 @@ void destroy() {
 
     // Trigger explosion if time is up
     if (remainingTime == 0) {
-      mosfetEnable = true;
-      activateMosfet_1();
-      printLCDFlash(F("Bomb Exploded!"), F("Time Expired!"));
-      delay(5000);
       ring1.clear();
       ring1.show();
       ring2.clear();
       ring2.show();
+      printLCDFlash(F("Bomb Exploded!"), F("Time Expired!"));
+      mosfetEnable = true;
+      activateMosfet_1();
+      delay(10000);
       explodeSplash();
       return;
     }
@@ -232,14 +232,14 @@ void handleDisarmingLogic(int minut, unsigned long iTime) {
     }
 
     if (percent >= 100) {
-      mosfetEnable = true;
-      activateMosfet_2();
-      printLCDFlash(F("Bomb Disarmed!"), F("Game Over!"));
-      delay(5000);
       ring1.clear();
       ring1.show();
       ring2.clear();
       ring2.show();
+      printLCDFlash(F("Bomb Disarmed!"), F("Game Over!"));
+      mosfetEnable = true;
+      activateMosfet_2();
+      delay(10000);
       disarmedSplash();
       return;
     }

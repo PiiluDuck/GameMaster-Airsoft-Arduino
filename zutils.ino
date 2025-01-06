@@ -1,4 +1,4 @@
-#define MOSFET_TIME_1 200
+#define MOSFET_TIME_1 600
 #define MOSFET_TIME_OFF_1 50
 #define MOSFET_TIME_2 50
 #define MOSFET_TIME_OFF_2 100
@@ -64,21 +64,6 @@ void updateTeamTime(bool team1Zone, bool team2Zone, unsigned long& team1Time, un
   }
   lastUpdateTime = currentMillis;
 }
-
-void displayTeamActiveTime(bool team1Zone, bool team2Zone, unsigned long team1Time, unsigned long team2Time, bool neutralZone) {
-  char team1Buffer[9];
-  char team2Buffer[9];
-  formatTimeFull(team1Time, team1Buffer, sizeof(team1Buffer), false);
-  formatTimeFull(team2Time, team2Buffer, sizeof(team2Buffer), false);
-
-  if (neutralZone) {
-    printLCDFlash(F("Neutral Zone"), F(""));
-  } else if (team1Zone) {
-    printLCDFlash(F("Team 1 Active"), team1Buffer);
-  } else if (team2Zone) {
-    printLCDFlash(F("Team 2 Active"), team2Buffer);
-  }
-}
 // Calculate Dynamic Interval for Buzzer
 unsigned long calculateDynamicInterval(unsigned int percent, unsigned long maxInterval, unsigned long minInterval) {
   return maxInterval - (percent * (maxInterval - minInterval) / 100);
@@ -92,7 +77,7 @@ void activateMosfet_1() {
   unsigned long lastToggleMillis = 0;    // Track the last toggle time
   bool mosfetState = false;              // Keep track of the MOSFET state (on/off)
 
-  while (millis() - startMillis < 5000) {  // Run for 5 seconds
+  while (millis() - startMillis < 10000) {  // Run for 10 seconds
     unsigned long currentMillis = millis();
 
     // Check if it's time to toggle the MOSFET state
@@ -118,7 +103,7 @@ void activateMosfet_2() {
   unsigned long lastToggleMillis = 0;    // Track the last toggle time
   bool mosfetState = false;              // Keep track of the MOSFET state (on/off)
 
-  while (millis() - startMillis < 5000) {  // Run for 5 seconds
+  while (millis() - startMillis < 10000) {  // Run for 10 seconds
     unsigned long currentMillis = millis();
 
     // Check if it's time to toggle the MOSFET state
@@ -226,8 +211,8 @@ const int peepCount = sizeof(peepFrequencies) / sizeof(peepFrequencies[0]);
 // Define Timings
 const unsigned long firstPeepTime = 200;
 const unsigned long secondPeepTime = 200;
-const unsigned long singlePeepOnTime = 150;  // Time the peep is on
-const unsigned long singlePeepOffTime = 200; // Time between peeps
+const unsigned long singlePeepOnTime = 140;  // Time the peep is on
+const unsigned long singlePeepOffTime = 120; // Time between peeps
 
 // Arming Animation: Green -> Yellow -> Red
 void armingAnimationLEDRing(Adafruit_NeoPixel& ring, unsigned long startTime, unsigned long totalTimeMillis) {
@@ -379,14 +364,7 @@ void ringLEDBlinkBlue(Adafruit_NeoPixel& ring, unsigned long currentMillis, int 
     ring.setPixelColor(i, ledsOn ? ring.Color(0, 26, 255) : ring.Color(0, 0, 0));  // Blue
   }
   ring.show();
-
-  // Update Buzzer
-  if (ledsOn) {
-    tone(tonepin, tonoAlarm2, 500);  // Play tone for 500ms
-  } else {
-    noTone(tonepin);  // Turn off buzzer
   }
-}
 
 // Armed Blinking Yellow with Tone
 void ringLEDBlinkYellow(Adafruit_NeoPixel& ring, unsigned long currentMillis, int buzzerFrequency) {
@@ -397,13 +375,6 @@ void ringLEDBlinkYellow(Adafruit_NeoPixel& ring, unsigned long currentMillis, in
     ring.setPixelColor(i, ledsOn ? ring.Color(255, 239, 0) : ring.Color(0, 0, 0));  // Yellow
   }
   ring.show();
-
-  // Update Buzzer
-  if (ledsOn) {
-    tone(tonepin, tonoAlarm2, 500);  // Play tone for 500ms
-  } else {
-    noTone(tonepin);  // Turn off buzzer
-  }
 }
 
 // Team 1 Arming Animation: Yellow
@@ -451,36 +422,6 @@ void armAnimaLEDRingW(Adafruit_NeoPixel& ring, unsigned long startTime, unsigned
   ring.show();
 }
 
-// Armed Blinking Red
-void ringLEDArmedRed(Adafruit_NeoPixel& ring, unsigned long currentMillis, unsigned long totalTimeMillis, unsigned long elapsedTime) {
-  unsigned long remainingTime = totalTimeMillis > elapsedTime ? totalTimeMillis - elapsedTime : 0;
-
-  unsigned long interval;
-  unsigned long toneDuration;
-
-  if (remainingTime > 20000) {
-    // Before 20 seconds: 2 seconds interval, long peeps
-    interval = 2000;
-    toneDuration = 500;
-  } else if (remainingTime > 10000) {
-    // Between 20 and 10 seconds: 1 second interval, long peeps
-    interval = 1000;
-    toneDuration = 300;
-  } else {
-    // After 10 seconds: Speed up with current curved logic
-    float progress = (10000.0f - remainingTime) / 10000.0f;  // Progress from 0 to 1 in last 10 seconds
-    interval = 1000 - (progress * progress * 500);           // Gradual curve, minimum 500ms
-    toneDuration = interval / 2;                             // Shorter peeps
-  }
-
-  bool ledsOn = (currentMillis / interval) % 2 == 0;
-
-  for (int i = 0; i < NUMPIXELS; i++) {
-    ring.setPixelColor(i, ledsOn ? ring.Color(255, 0, 0) : ring.Color(0, 0, 0));  // Red
-  }
-  ring.show();
-}
-
 // Neutral Blinking Logic (No Sound)
 void ringLEDNeutral(Adafruit_NeoPixel& ring, unsigned long currentMillis) {
   bool ledsOn = (currentMillis / 1000) % 2 == 0;
@@ -496,7 +437,7 @@ void handleBlinking(unsigned long totalTimeMillis, unsigned long elapsedTime) {
   unsigned long currentMillis = millis();
 
   if (ringBlinkingRed) {
-    syncLEDAndBuzzer(ring1, currentMillis, totalTimeMillis, elapsedTime, tonoAlarm1);
+    syncLEDAndBuzzer(ring1, currentMillis, totalTimeMillis, elapsedTime, tonoAlarm2);
     syncLEDAndBuzzer(ring2, currentMillis, totalTimeMillis, elapsedTime, tonoAlarm1);
   }
 

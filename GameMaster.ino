@@ -23,10 +23,10 @@ This Code is funtional but not fully optomized.
 // Define constants and macros
 #define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper*>(pstr_pointer))
 #define F(string_literal) (FPSTR(PSTR(string_literal)))
-#define NUMPIXELS 12
+#define NUMPIXELS 24
 #define LED_PIN1 6
 #define LED_PIN2 7
-#define LED_COUNT 12
+#define LED_COUNT 24
 
 // Setup RGB Rings
 Adafruit_NeoPixel ring1 = Adafruit_NeoPixel(NUMPIXELS, LED_PIN1, NEO_GRB + NEO_KHZ800);
@@ -73,6 +73,25 @@ unsigned long lastBuzzerTime = 0;
 unsigned long gameStartTime, gameEndTime, armingStartTime;
 unsigned long team1StartTime, team2StartTime, team1TotalTime = 0, team2TotalTime = 0;
 bool team1Zone = false, team2Zone = false, neutralZone = true;
+
+// Memory for storing the last game's settings
+struct GameSettings {
+  unsigned int gameTime;
+  unsigned int bombTime;
+  unsigned int armingTime;
+  bool soundEnabled;
+};
+
+// Global variables for last game mode and settings
+int lastGameMode = -1;  // -1 means no game selected
+GameSettings lastGameSettings = {0, 0, 0, true};  // Default settings
+enum SplashType { NONE, END_SPLASH, DOMINATION_SPLASH, DISARMED_SPLASH, EXPLODE_SPLASH };
+SplashType lastSplash = NONE;
+struct GameData {
+  unsigned long team1Time;
+  unsigned long team2Time;
+  const char* winner;
+} lastGameData;
 
 // Sound and Miscellaneous
 bool soundEnable = true;
