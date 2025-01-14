@@ -62,8 +62,8 @@ const char neutReset[] PROGMEM = "Neutral Reset";
 const char team1Active[] PROGMEM = "Yellow Active";
 const char team2Active[] PROGMEM = "Blue Active";
 const char remTime[] PROGMEM = "Remaining Time";
-const char yellowText[] PROGMEM = "Yellow";
-const char blueText[] PROGMEM = "Blue";
+const char team1Text[] PROGMEM = "Yellow";
+const char team2Text[] PROGMEM = "Blue";
 const char armingText[] PROGMEM = "Arming";
 
 //SearchDestroy

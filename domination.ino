@@ -54,7 +54,7 @@ void domination() {
         } else if (team2Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
         } else if (neutralZone) {
-          handleZoneLogic(true, false, reinterpret_cast<const char*>(yellowText), team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
+          handleZoneLogic(true, false, reinterpret_cast<const char*>(team1Text), team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
         }
         buttonReleasedAfterAction = false;
       }
@@ -69,7 +69,7 @@ void domination() {
         } else if (team1Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
         } else if (neutralZone) {
-          handleZoneLogic(false, true, reinterpret_cast<const char*>(blueText), team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
+          handleZoneLogic(false, true, reinterpret_cast<const char*>(team2Text), team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
         }
         buttonReleasedAfterAction = false;
       }
@@ -195,9 +195,9 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
 
       // If the same button remains held, start arming the same team
       if (neutralizingTeam == 'c' && demineer && activeRing == &ring1) {
-        handleZoneLogic(true, false, reinterpret_cast<const char*>(yellowText), team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
+        handleZoneLogic(true, false, reinterpret_cast<const char*>(team1Text), team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
       } else if (neutralizingTeam == 'd' && demineer && activeRing == &ring2) {
-        handleZoneLogic(false, true, reinterpret_cast<const char*>(blueText), team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
+        handleZoneLogic(false, true, reinterpret_cast<const char*>(team2Text), team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
       }
       return;
     }
@@ -214,9 +214,9 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamNam
 
   // Copy "Yellow"/"Blue" and "Arming" from PROGMEM to RAM
   if (activateTeam1) {
-    strncpy_P(teamBuffer, yellowText, sizeof(teamBuffer) - 1);
+    strncpy_P(teamBuffer, team1Text, sizeof(teamBuffer) - 1);
   } else if (activateTeam2) {
-    strncpy_P(teamBuffer, blueText, sizeof(teamBuffer) - 1);
+    strncpy_P(teamBuffer, team2Text, sizeof(teamBuffer) - 1);
   }
   strncpy_P(armingBuffer, armingText, sizeof(armingBuffer) - 1);
 
