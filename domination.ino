@@ -1,14 +1,11 @@
-void printLCDFlash(const __FlashStringHelper* line1, const char* line2);
-void printLCDFlash(const char* line1, const char* line2);
-void printTimeToLCD(unsigned long timeMillis, int row);
-void formatTimeFull(unsigned long timeMillis, char* buffer, size_t bufferSize, bool includeMillis = true);
-//void updateRedLED(unsigned long refTime);
-//void updateGreenLED(unsigned long refTime);
+#include "LCDutils.h"
+#include "localization.h"
+
 void playBuzzer(int frequency, unsigned long interval, bool twoPeeps = false);
 
 // Domination Game Mode
 void domination() {
-  dominationMode = true;
+  doStatus = true;
   demineer = false;
   bool buttonReleasedAfterAction = true;
 
@@ -20,9 +17,8 @@ void domination() {
   unsigned long team1TotalTime = 0, team2TotalTime = 0;
 
   bool team1Zone = false, team2Zone = false, neutralZone = true;
-
-  printLCDFlash(F("Game Start"), "");
-  tone(tonepin, tonoAlarm1, 1000);  // Play a 1-second peep
+  printLCDFromPROGMEM(startGame);
+  playBuzzer(tonepin, tonoAlarm1, 1000);  // Play a 1-second peep
   delay(1050);
 
   // Start Neutral blinking
@@ -39,7 +35,7 @@ void domination() {
     // Keypad Input
     char key = keypad.getKey();
     if (key) {
-      if (dominationMode) {
+      if (doStatus) {
         if (key == 'c') demineer = true;  // Team 1
         if (key == 'd') demineer = true;  // Team 2
       } else {
@@ -53,12 +49,12 @@ void domination() {
     if (key == 'c' && demineer) {
       if (buttonReleasedAfterAction) {
         if (team1Zone) {
-          printLCDFlash("Already Active", (const char*)nullptr);
+          printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(alreadteam1Active));
           delay(800);
         } else if (team2Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
         } else if (neutralZone) {
-          handleZoneLogic(true, false, "Yellow", team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
+          handleZoneLogic(true, false, reinterpret_cast<const char*>(yellowText), team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
         }
         buttonReleasedAfterAction = false;
       }
@@ -68,12 +64,12 @@ void domination() {
     if (key == 'd' && demineer) {
       if (buttonReleasedAfterAction) {
         if (team2Zone) {
-          printLCDFlash("Already Active", (const char*)nullptr);
+          printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(alreadteam1Active));
           delay(800);
         } else if (team1Zone) {
           handleZoneNeutralization(team1Zone, team2Zone, neutralZone);
         } else if (neutralZone) {
-          handleZoneLogic(false, true, "Blue", team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
+          handleZoneLogic(false, true, reinterpret_cast<const char*>(blueText), team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
         }
         buttonReleasedAfterAction = false;
       }
@@ -86,7 +82,7 @@ void domination() {
       lastLCDUpdate = currentMillis;
 
       if (neutralZone) {
-        printLCDFlash("Neutral Zone", (const char*)nullptr);
+        printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(neutZone));
         printTimeToLCD((gameEndTime > currentMillis) ? (gameEndTime - currentMillis) : 0, 1);
         ringNeutralBlinking = true;
         ring1Blinking = false;
@@ -110,12 +106,12 @@ void domination() {
       ring1.show();
       ring2.clear();
       ring2.show();
-      printLCDFlash(F("Times Up!"), F("Game Over!"));
+      printLCDFromPROGMEM(timeOverText), (gameOverText);
       mosfetEnable = true;
       activateMosfet_2();
       delay(10000);
       dominationSplash(team1TotalTime, team2TotalTime);
-      dominationMode = false;
+      doStatus = false;
       return;
     }
 
@@ -130,17 +126,24 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
   ring2.clear();
   ring2.show();
 
-  printLCDFlash(F("Neutralizing"), "");
+  printLCDFromPROGMEM(neut);
 
   unsigned long armingTimeMillis = ACTIVATESECONDS * 1000;
   unsigned long startTime = millis();
   unsigned int percent = 0;
 
   arming = true;
+  char neutralizingTeam = '\0';  // Track the team performing neutralization
 
   while (true) {
     char key = keypad.getKey();
     if (key) keypadEvent(key);
+
+    if (activeRing == &ring1 && demineer) {
+      neutralizingTeam = 'c';  // Team 1
+    } else if (activeRing == &ring2 && demineer) {
+      neutralizingTeam = 'd';  // Team 2;
+    }
 
     if (!demineer) {
       arming = false;
@@ -154,7 +157,7 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       ring2.clear();
       ring2.show();
 
-      printLCDFlash("Neutral Reset!", (const char*)nullptr);
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(neutReset));
       delay(800);
 
       return;
@@ -169,10 +172,10 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       lcd.setCursor(0, 1);
       drawNativeLCDProgressBar(percent);
       //sendBlynkProgressBar(percent);
-      if (activeRing == &ring1) {
+      if (neutralizingTeam == 'c') {
         armAnimaLEDRingW(ring2, startTime, armingTimeMillis);  // Update LED animation
       }
-      if (activeRing == &ring2) {
+      if (neutralizingTeam == 'd') {
         armAnimaLEDRingW(ring1, startTime, armingTimeMillis);  // Update LED animation
       }
       lastBarUpdateTime = currentMillis;
@@ -188,6 +191,14 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
       ring2Blinking = false;
       ringNeutralBlinking = true;
 
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(neutZone));
+
+      // If the same button remains held, start arming the same team
+      if (neutralizingTeam == 'c' && demineer && activeRing == &ring1) {
+        handleZoneLogic(true, false, reinterpret_cast<const char*>(yellowText), team1Zone, team2Zone, neutralZone, team1StartTime, team1TotalTime);
+      } else if (neutralizingTeam == 'd' && demineer && activeRing == &ring2) {
+        handleZoneLogic(false, true, reinterpret_cast<const char*>(blueText), team1Zone, team2Zone, neutralZone, team2StartTime, team2TotalTime);
+      }
       return;
     }
 
@@ -198,9 +209,26 @@ void handleZoneNeutralization(bool& team1Zone, bool& team2Zone, bool& neutralZon
 // Handle Zone Logic (for capturing)
 void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamName, bool& team1Zone, bool& team2Zone, bool& neutralZone, unsigned long& zoneStartTime, unsigned long& teamTotalTime) {
   char armingMessage[17];
-  snprintf(armingMessage, sizeof(armingMessage), "%s Arming", teamName);
+  char teamBuffer[10];
+  char armingBuffer[10];
 
-  printLCDFlash(armingMessage, (const char*)nullptr);  // Use the dynamic message for LCD
+  // Copy "Yellow"/"Blue" and "Arming" from PROGMEM to RAM
+  if (activateTeam1) {
+    strncpy_P(teamBuffer, yellowText, sizeof(teamBuffer) - 1);
+  } else if (activateTeam2) {
+    strncpy_P(teamBuffer, blueText, sizeof(teamBuffer) - 1);
+  }
+  strncpy_P(armingBuffer, armingText, sizeof(armingBuffer) - 1);
+
+  // Null-terminate the buffers
+  teamBuffer[sizeof(teamBuffer) - 1] = '\0';
+  armingBuffer[sizeof(armingBuffer) - 1] = '\0';
+
+  // Combine the strings
+  snprintf(armingMessage, sizeof(armingMessage), "%s %s", teamBuffer, armingBuffer);
+
+  // Use the dynamic message for the LCD
+  printLCDFlash(armingMessage, (const char*)nullptr);
   ring1.clear();
   ring1.show();
   ring2.clear();
@@ -228,7 +256,7 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamNam
       ring2.clear();
       ring2.show();
 
-      printLCDFlash("Arming Reset!", (const char*)nullptr);
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(armReset));
       delay(800);
       return;
     }
@@ -282,7 +310,7 @@ void handleZoneLogic(bool activateTeam1, bool activateTeam2, const char* teamNam
 
 void displayTeamActiveTime(bool team1Zone, bool team2Zone, unsigned long team1Time, unsigned long team2Time, bool neutralZone, unsigned long gameEndTime) {
   static unsigned long lastToggleTime = millis();  // Track the last toggle time
-  static bool showCaptureTime = true;             // Toggle state between capture and remaining time
+  static bool showCaptureTime = true;              // Toggle state between capture and remaining time
   unsigned long currentMillis = millis();
 
   // Alternate between "Capture Time" and "Remaining Time" every 2 seconds
@@ -291,33 +319,36 @@ void displayTeamActiveTime(bool team1Zone, bool team2Zone, unsigned long team1Ti
     lastToggleTime = currentMillis;
   }
 
-  char team1Buffer[9];
-  char team2Buffer[9];
+  char team1Buffer[17] = { 0 };
+  char team2Buffer[17] = { 0 };
+  char remainingBuffer[17] = { 0 };
+
+  // Format time strings
   formatTimeFull(team1Time, team1Buffer, sizeof(team1Buffer), false);
   formatTimeFull(team2Time, team2Buffer, sizeof(team2Buffer), false);
 
-  char remainingBuffer[9];
   unsigned long remainingTime = (gameEndTime > currentMillis) ? (gameEndTime - currentMillis) : 0;
   formatTimeFull(remainingTime, remainingBuffer, sizeof(remainingBuffer), false);
 
+  // Update the LCD display
   if (neutralZone) {
     // Neutral Zone Display
-    printLCDFlash(F("Neutral Zone"), remainingBuffer);
+    printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(neutZone), remainingBuffer);
   } else if (team1Zone) {
     if (showCaptureTime) {
       // Display Team 1 Capture Time
-      printLCDFlash(F("Yellow Active"), team1Buffer);
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(team1Active), team1Buffer);
     } else {
       // Display Remaining Game Time
-      printLCDFlash(F("Remaining Time"), remainingBuffer);
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(remTime), remainingBuffer);
     }
   } else if (team2Zone) {
     if (showCaptureTime) {
       // Display Team 2 Capture Time
-      printLCDFlash(F("Blue Active"), team2Buffer);
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(team2Active), team2Buffer);
     } else {
       // Display Remaining Game Time
-      printLCDFlash(F("Remaining Time"), remainingBuffer);
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(remTime), remainingBuffer);
     }
   }
 }

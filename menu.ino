@@ -1,3 +1,6 @@
+#include "LCDutils.h"
+#include "localization.h"
+
 // Simplified Key Input Check
 boolean isPressed(char key) {
   return (keypad.getKey() == key);
@@ -31,7 +34,7 @@ bool editTimeInput(const __FlashStringHelper* prompt, char* timeBuffer, int& cur
     if (key == BT_EXIT) {
       lcd.noCursor();
       lcd.noBlink();
-      printLCDFlash(F("Exiting Config"), F(""));
+      printLCDFromPROGMEM(exitMen);
       delay(2000);
       return false;
     }
@@ -119,7 +122,7 @@ void menuPrincipal() {
   while (true) {
     char var = keypad.getKey();
     if (var == BT_EXIT) {
-      printLCDFlash(F("Exiting Menu"), F(""));
+      printLCDFromPROGMEM(exitMen);
       tone(tonepin, 2400, 30);
       delay(2000);
       return;
@@ -220,25 +223,25 @@ void config() {
       } else if (var == BT_SEL) {
         switch (i) {
           case 0:  // Test Sound
-            printLCDFlash(F("Testing Sound"), F(""));
+            printLCDFromPROGMEM(testSound);
             playStartupTune();
             delay(5000);
             break;
 
           case 1:  // Test Mosfet
-            printLCDFlash(F("Testing Mosfet 1"), F(""));
+            printLCDFromPROGMEM(testMosf1);
             mosfetEnable = true;
             activateMosfet_1();
-            printLCDFlash(F("Mosfet 1 OFF"), F(""));
+            printLCDFromPROGMEM(mosfetOff);
             mosfetEnable = false;
             delay(2000);
             break;
 
           case 2:  // Test Mosfet
-            printLCDFlash(F("Testing Mosfet 2"), F(""));
+            printLCDFromPROGMEM(testMosf2);
             mosfetEnable = true;
             activateMosfet_2();
-            printLCDFlash(F("Mosfet 2 OFF"), F(""));
+            printLCDFromPROGMEM(mosfetOff);
             mosfetEnable = false;
             delay(2000);
             break;
@@ -254,7 +257,7 @@ void config() {
 // Confirmation function
 bool confirmSetting(const char* selectedTime) {
   // Display confirmation options and the selected time
-  printLCDFlash(F("A: Yes B: No"), selectedTime);
+    printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(select), selectedTime);
   lcd.noCursor();  // Ensure no blinking cursor
   lcd.noBlink();
 
@@ -277,7 +280,7 @@ bool configureGameTime() {
 
   while (true) {
     // Prompt user to edit game time
-    if (!editTimeInput(F("Set Game Time"), timeInput, cursorIndex, true, true, false)) {
+    if (!editTimeInput(reinterpret_cast<const __FlashStringHelper*>(setGameTime), timeInput, cursorIndex, true, true, false)) {
       return false;  // User canceled
     }
 
@@ -305,7 +308,7 @@ bool configureBombTime() {
 
   while (true) {
     // Prompt user to edit bomb time
-    if (!editTimeInput(F("Set Bomb Time"), timeInput, cursorIndex, false, true, false)) {
+    if (!editTimeInput(reinterpret_cast<const __FlashStringHelper*>(setBombTime), timeInput, cursorIndex, false, true, false)) {
       return false;  // User canceled
     }
 
@@ -333,7 +336,7 @@ bool configureArmingTime() {
 
   while (true) {
     // Prompt user to edit arming time
-    if (!editTimeInput(F("Set Arming Time"), timeInput, cursorIndex, false, false, true)) {
+    if (!editTimeInput(reinterpret_cast<const __FlashStringHelper*>(setArmTime), timeInput, cursorIndex, false, false, true)) {
       return false;  // User canceled
     }
 
@@ -357,13 +360,14 @@ bool configureArmingTime() {
 
 // Sound Configuration
 bool configureSound() {
-  printLCDFlash(F("Enable Sound?"), F("A: Yes B: No"));
+  printLCDFromPROGMEM(sound), (select);
 
   while (true) {
     char var = keypad.getKey();
     if (var == 'a') {
       soundEnable = true;
-      tone(tonepin, 2400, 30);
+            bool forceSound = true;
+      if (forceSound) tone(tonepin, 2400, 30);  // Play tone only during config
       delay(500);
       break;
     } else if (var == 'b') {

@@ -1,3 +1,6 @@
+#include "LCDutils.h"
+#include "localization.h"
+
 #define MOSFET_TIME_1 600
 #define MOSFET_TIME_OFF_1 50
 #define MOSFET_TIME_2 50
@@ -28,22 +31,6 @@ void drawNativeLCDProgressBar(byte percent) {
   }
 }
 
-// Draw progress bar to send to Blynk
-/*void sendBlynkProgressBar(byte percent) {
-  char blynkBar[17] = "";         // Create a text-based progress bar for Blynk
-  for (int i = 0; i < 16; i++) {  // Simulate a 16-character progress bar
-    if (i < (percent / 6.25)) {   // Scale percentage to 16 characters
-      blynkBar[i] = '#';          // Completed part
-    } else {
-      blynkBar[i] = ' ';  // Remaining part
-    }
-  }
-  blynkBar[16] = '\0';  // Null-terminate the string
-
-  // Send the progress bar to Blynk
-  sendToESP("", blynkBar);  // Send only the progress bar to the second line
-}*/
-
 // Updates progress bar and returns progress percentage based on dynamic time
 unsigned int updateProgressBar(unsigned long startTime, unsigned long totalTimeMillis) {
   unsigned long elapsed = millis() - startTime;
@@ -71,7 +58,7 @@ unsigned long calculateDynamicInterval(unsigned int percent, unsigned long maxIn
 
 // Activate MOSFET for a specified duration
 void activateMosfet_1() {
-  if (!mosfetEnable) return;  // Exit if MOSFET is not enabled
+  if (!mosfetEnable || !soundEnable) return;  // Exit if MOSFET is not enabled
 
   unsigned long startMillis = millis();  // Record the start time
   unsigned long lastToggleMillis = 0;    // Track the last toggle time
@@ -97,7 +84,7 @@ void activateMosfet_1() {
 }
 
 void activateMosfet_2() {
-  if (!mosfetEnable) return;  // Exit if MOSFET is not enabled
+  if (!mosfetEnable || !soundEnable) return;  // Exit if MOSFET is not enabled
 
   unsigned long startMillis = millis();  // Record the start time
   unsigned long lastToggleMillis = 0;    // Track the last toggle time
@@ -140,7 +127,7 @@ void startGameCount() {
 
     // Draw progress bar
     lcd.setCursor(0, 0);
-    lcd.print(F("Starting in..."));
+    printLCDFromPROGMEM(gameStartText);
     lcd.setCursor(0, 1);
     drawNativeLCDProgressBar(percent);
 
@@ -156,32 +143,12 @@ void startGameCount() {
   lcd.clear();
 }
 
-//BASIC LED LOGIC
-
-// Update Red LED Blinking Logic
-/*void updateRedLED(unsigned long refTime) {
-  unsigned long elapsedTime = (millis() - refTime) % 1000;
-  if (elapsedTime < 150) {
-    digitalWrite(REDLED, HIGH);  // Turn on LED for the first 150ms of the second
-  } else {
-    digitalWrite(REDLED, LOW);  // Turn off LED for the rest of the second
-  }
-}*/
-
-// Update Green LED Blinking Logic
-/*void updateGreenLED(unsigned long refTime) {
-  unsigned long elapsedTime = (millis() - refTime) % 1000;
-  if (elapsedTime < 150) {
-    digitalWrite(GREENLED, HIGH);  // Turn on LED for the first 150ms of the second
-  } else {
-    digitalWrite(GREENLED, LOW);  // Turn off LED for the rest of the second
-  }
-}*/
-
 // BUZZER SETTING
 
 // Buzzer Function
 void playBuzzer(int frequency, unsigned long interval, bool twoPeeps = false) {
+  if (!soundEnable) return;
+
   static unsigned long lastBuzzerTime = 0;
   static bool secondPeep = false;
   unsigned long currentMillis = millis();
@@ -211,8 +178,8 @@ const int peepCount = sizeof(peepFrequencies) / sizeof(peepFrequencies[0]);
 // Define Timings
 const unsigned long firstPeepTime = 200;
 const unsigned long secondPeepTime = 200;
-const unsigned long singlePeepOnTime = 140;  // Time the peep is on
-const unsigned long singlePeepOffTime = 120; // Time between peeps
+const unsigned long singlePeepOnTime = 140;   // Time the peep is on
+const unsigned long singlePeepOffTime = 120;  // Time between peeps
 
 // Arming Animation: Green -> Yellow -> Red
 void armingAnimationLEDRing(Adafruit_NeoPixel& ring, unsigned long startTime, unsigned long totalTimeMillis) {
@@ -233,9 +200,9 @@ void armingAnimationLEDRing(Adafruit_NeoPixel& ring, unsigned long startTime, un
     } else if (elapsedTime < firstPeepTime + secondPeepTime) {
       tone(tonepin, 523);  // Second peep
     } else {
-      noTone(tonepin);        // Stop peep
-      quickPeepsDone = true;  // Mark quick peeps as done
-      lastPeepTime = millis(); // Initialize timing for single peeps
+      noTone(tonepin);          // Stop peep
+      quickPeepsDone = true;    // Mark quick peeps as done
+      lastPeepTime = millis();  // Initialize timing for single peeps
     }
     return;  // Return early while handling the first two peeps
   }
@@ -303,9 +270,9 @@ void disarmAnimationLEDRing(Adafruit_NeoPixel& ring, unsigned long startTime, un
     } else if (elapsedTime < firstPeepTime + secondPeepTime) {
       tone(tonepin, 523);  // Second peep
     } else {
-      noTone(tonepin);        // Stop peep
-      quickPeepsDone = true;  // Mark quick peeps as done
-      lastPeepTime = millis(); // Initialize timing for single peeps
+      noTone(tonepin);          // Stop peep
+      quickPeepsDone = true;    // Mark quick peeps as done
+      lastPeepTime = millis();  // Initialize timing for single peeps
     }
     return;  // Return early while handling the first two peeps
   }
@@ -354,7 +321,6 @@ void disarmAnimationLEDRing(Adafruit_NeoPixel& ring, unsigned long startTime, un
   ring.show();
 }
 
-
 // Armed Blinking Blue with Tone
 void ringLEDBlinkBlue(Adafruit_NeoPixel& ring, unsigned long currentMillis, int buzzerFrequency) {
   bool ledsOn = (currentMillis / 1000) % 2 == 0;
@@ -364,7 +330,7 @@ void ringLEDBlinkBlue(Adafruit_NeoPixel& ring, unsigned long currentMillis, int 
     ring.setPixelColor(i, ledsOn ? ring.Color(0, 26, 255) : ring.Color(0, 0, 0));  // Blue
   }
   ring.show();
-  }
+}
 
 // Armed Blinking Yellow with Tone
 void ringLEDBlinkYellow(Adafruit_NeoPixel& ring, unsigned long currentMillis, int buzzerFrequency) {

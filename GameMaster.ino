@@ -1,16 +1,16 @@
-
+#include "LCDutils.h"
+#include "localization.h"
 #include <limits.h>
 #include <Wire.h>
 #include <Keypad.h>
 #include <LiquidCrystal_I2C.h>
 #include <Adafruit_NeoPixel.h>
-//#include <SoftwareSerial.h>
 /*
 Original Code by: Ignacio Lillo
 95% of Code has been changed and rewritten by: Kaimar Laiva
 
 Updated to work with modern Arduino systems
-Updated to work with flash Memory
+Updated to work with PROGMEM
 Updated to fix timing code math
 Updated with RingLED animations
 Domination Code re-written with new Logic and dynamics
@@ -18,7 +18,7 @@ Search and Destroy -//-
 Removed Unnesseseary Modes and code
 Wifi Shield with ESP8266 Implimented, but not perfected. -currently not used 
 
-This Code is funtional but not fully optomized. 
+This Code is funtional and somewhat optimized. 
 */
 // Define constants and macros
 #define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper*>(pstr_pointer))
@@ -32,8 +32,7 @@ This Code is funtional but not fully optomized.
 Adafruit_NeoPixel ring1 = Adafruit_NeoPixel(NUMPIXELS, LED_PIN1, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel ring2 = Adafruit_NeoPixel(NUMPIXELS, LED_PIN2, NEO_GRB + NEO_KHZ800);
 
-// LCD and Keypad Setup
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+//Keypad Setup
 const byte ROWS = 4;
 const byte COLS = 4;
 char keys[ROWS][COLS] = {
@@ -46,8 +45,6 @@ byte rowPins[ROWS] = { 5, 4, 3, 2 };
 byte colPins[COLS] = { A0, A1, A2, A3 };
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-// ESP8266 Communication
-//SoftwareSerial espSerial(2, 3);
 
 // Game Status Variables
 const char BT_UP = 'a';
@@ -56,18 +53,6 @@ const char BT_SEL = 'd';
 const char BT_CANCEL = 'c';
 const char BT_EXIT = '*';
 
-// Menu Items
-const char menuItems[][17] PROGMEM = {
-  "Search & Destroy",
-  "Domination",
-  "Config"
-};
-const char configItems[][17] PROGMEM = {
-  "Test Sound",
-  "Test Mosfet 1",
-  "Test Mosfet 2",
-  "Back to Menu"
-};
 // State Variables
 unsigned long lastBuzzerTime = 0;
 unsigned long gameStartTime, gameEndTime, armingStartTime;
@@ -83,20 +68,22 @@ struct GameSettings {
 };
 
 // Global variables for last game mode and settings
-int lastGameMode = -1;  // -1 means no game selected
-GameSettings lastGameSettings = {0, 0, 0, true};  // Default settings
-enum SplashType { NONE, END_SPLASH, DOMINATION_SPLASH, DISARMED_SPLASH, EXPLODE_SPLASH };
+int lastGameMode = -1;                              // -1 means no game selected
+GameSettings lastGameSettings = { 0, 0, 0, true };  // Default settings
+enum SplashType { NONE,
+                  END_SPLASH,
+                  DOMINATION_SPLASH,
+                  DISARMED_SPLASH,
+                  EXPLODE_SPLASH };
 SplashType lastSplash = NONE;
 struct GameData {
   unsigned long team1Time;
   unsigned long team2Time;
-  const char* winner;
+  char winner[17];
 } lastGameData;
 
 // Sound and Miscellaneous
 bool soundEnable = true;
-bool searchAndDestroyMode = false;
-bool dominationMode = false;
 bool buttonHeld = false;
 bool demineer = false;
 bool cancel = false;
@@ -106,8 +93,6 @@ bool doStatus = false;  // Domination Status
 bool arming = false;
 
 // LED and Mosfet Pins
-//const int REDLED = 11;
-//const int GREENLED = 10;
 unsigned long timeCalcVar;
 const int mosfet = 9;
 bool mosfetEnable = false;
@@ -135,12 +120,10 @@ unsigned long lastLEDUpdateTime = 0;
 
 // Setup
 void setup() {
-  Serial.begin(115200);
-//  espSerial.begin(115200);
+  Serial.begin(9600);
+  //Serial.println("Serial Begin");
 
   // LED Setup
- // pinMode(GREENLED, OUTPUT);
- // pinMode(REDLED, OUTPUT);
   pinMode(mosfet, OUTPUT);
   digitalWrite(mosfet, LOW);
 
@@ -155,16 +138,14 @@ void setup() {
 
   lcd.init();
   lcd.backlight();
-  //Gives time for wifi connection
   lcd.setCursor(0, 0);
-  lcd.print(F("SYSTEM LOADING..."));
+  lcd.print(FPSTR(loadingText));
   // Animate progress bar and play startup tune
   unsigned long startTime = millis();
   unsigned long totalTimeMillis = 3000;
   while (millis() - startTime < totalTimeMillis) {
     unsigned int percent = updateProgressBar(startTime, totalTimeMillis);
     drawNativeLCDProgressBar(percent);
-    //sendBlynkProgressBar(percent);
     playStartupTune();
     delay(50);
   }
@@ -172,9 +153,9 @@ void setup() {
   // Welcome Message
   lcd.clear();
   lcd.setCursor(4, 0);
-  lcd.print(F("SOFTAIR"));
+  lcd.print(FPSTR(welcomeText));
   lcd.setCursor(1, 1);
-  lcd.print(F("AIRSOFT SYSTEM"));
+  lcd.print(FPSTR(initSysText));
   tone(tonepin, 2400, 30);
   delay(2000);
 
@@ -207,7 +188,7 @@ void setupCustomCharacters() {
 
 // Keypad Event
 void keypadEvent(KeypadEvent key) {
-  if (dominationMode) {  // Domination Mode Logic
+  if (doStatus) {  // Domination Mode Logic
     if (key == 'c') {
       if (keypad.getState() == PRESSED || keypad.getState() == HOLD) {
         activeRing = &ring1;
@@ -225,7 +206,7 @@ void keypadEvent(KeypadEvent key) {
         activeRing = nullptr;
       }
     }
-  } else if (searchAndDestroyMode) {  // Search and Destroy Mode Logic
+  } else if (sdStatus) {  // Search and Destroy Mode Logic
     if (key == 'c' || key == 'd') {
       if (keypad.getState() == PRESSED || keypad.getState() == HOLD) {
         demineer = true;
@@ -259,7 +240,6 @@ void keypadEvent(KeypadEvent key) {
   }
 }
 
-
 // Main Loop
 void loop() {
   menuPrincipal();
@@ -282,10 +262,32 @@ int tempo = 220;
 
 // Define the melody and durations
 int melody[] = {
-  NOTE_E5, 8, NOTE_D5, 8, NOTE_FS4, 4, NOTE_GS4, 4, 
-  NOTE_CS5, 8, NOTE_B4, 8, NOTE_D4, 4, NOTE_E4, 4, 
-  NOTE_B4, 8, NOTE_A4, 8, NOTE_CS4, 4, NOTE_E4, 4,
-  NOTE_A4, 2,
+  NOTE_E5,
+  8,
+  NOTE_D5,
+  8,
+  NOTE_FS4,
+  4,
+  NOTE_GS4,
+  4,
+  NOTE_CS5,
+  8,
+  NOTE_B4,
+  8,
+  NOTE_D4,
+  4,
+  NOTE_E4,
+  4,
+  NOTE_B4,
+  8,
+  NOTE_A4,
+  8,
+  NOTE_CS4,
+  4,
+  NOTE_E4,
+  4,
+  NOTE_A4,
+  2,
 };
 
 // Number of notes in the melody

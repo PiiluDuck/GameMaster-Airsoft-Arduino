@@ -1,11 +1,12 @@
-void formatTimeFull(unsigned long timeMillis, char* buffer, size_t bufferSize, bool includeMillis = true);
-//void updateRedLED(unsigned long refTime);
-//void updateGreenLED(unsigned long refTime);
+#include "LCDutils.h"
+#include "localization.h"
+
+void playBuzzer(int frequency, unsigned long interval, bool twoPeeps = false);
 
 // Before Bomb is Armed
 void search() {
   demineer = false;
-  searchAndDestroyMode = true;
+  sdStatus = true;
   buttonHeld = false;
   // digitalWrite(REDLED, LOW);
   // digitalWrite(GREENLED, LOW);
@@ -15,8 +16,8 @@ void search() {
 
   bool buttonReleasedAfterArming = true;
 
-  printLCDFlash(F("Game Start"), "");
-  tone(tonepin, tonoAlarm1, 1000);  // Play a 1-second peep
+  printLCDFromPROGMEM(startGame);
+  playBuzzer(tonepin, tonoAlarm1, 1000);  // Play a 1-second peep
   delay(1050);
 
   ringBlinkingRed = false;
@@ -48,7 +49,7 @@ void search() {
     if (remainingTime <= 60000) {  // Last minute
       static unsigned long lastPeepTime = 0;
       if (millis() - lastPeepTime >= 3000) {  // 3-second interval
-        tone(tonepin, tonoAlarm1, 100);       // Peep for 100ms
+        playBuzzer(tonepin, tonoAlarm1, 100);       // Peep for 100ms
         lastPeepTime = millis();
       }
     }
@@ -59,7 +60,7 @@ void search() {
       ring1.show();
       ring2.clear();
       ring2.show();
-      printLCDFlash(F("Game Over!"), F("Time Expired!"));
+      printLCDFromPROGMEM(timeOverText), (gameOverText);
             mosfetEnable = true;
       activateMosfet_2();
       delay(10000);
@@ -74,7 +75,7 @@ void search() {
     if (remainingTime / 1000 != lastDisplayedTime / 1000) {  // Check seconds only
       char timeBuffer[17];
       formatTimeFull(remainingTime, timeBuffer, sizeof(timeBuffer), false);
-      printLCDFlash(F("Remaining Time"), timeBuffer);
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(remTime), timeBuffer);
 
       lastDisplayedTime = remainingTime;  // Update the last displayed time
     }
@@ -84,9 +85,9 @@ void search() {
 // Once Bomb is Armed
 void destroy() {
   demineer = false;
-  searchAndDestroyMode = true;
+  sdStatus = true;
   buttonHeld = false;
-  printLCDFlash(F("Bomb Armed"), F(""));
+  printLCDFromPROGMEM(bombArm);
   ring1.clear();
   ring1.show();
   ring2.clear();
@@ -128,7 +129,7 @@ void destroy() {
       ring1.show();
       ring2.clear();
       ring2.show();
-      printLCDFlash(F("Bomb Exploded!"), F("Time Expired!"));
+      printLCDFromPROGMEM(bombExp), (timeOverText);
       mosfetEnable = true;
       activateMosfet_1();
       delay(10000);
@@ -142,7 +143,7 @@ void destroy() {
     if (remainingTime / 1000 != lastDisplayedTime / 1000) {  // Check seconds only
       char timeBuffer[17];
       formatTimeFull(remainingTime, timeBuffer, sizeof(timeBuffer), false);
-      printLCDFlash(F("Remaining Time"), timeBuffer);
+     printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(remTime), timeBuffer);
 
       lastDisplayedTime = remainingTime;  // Update the last displayed time
     }
@@ -151,7 +152,7 @@ void destroy() {
 
 // Handle Arming Logic
 void handleArmingLogic() {
-  printLCDFlash(F("Arming Bomb"), F(""));
+  printLCDFromPROGMEM(bombArmProg);
   ring1.clear();
   ring1.show();
   ring2.clear();
@@ -166,7 +167,7 @@ void handleArmingLogic() {
     if (key) keypadEvent(key);
 
     if (!demineer) {
-      printLCDFlash(F("Arming Reset!"), F(""));
+      printLCDFlash(reinterpret_cast<const __FlashStringHelper*>(armReset));
       delay(800);
       return;
     }
@@ -195,7 +196,7 @@ void handleArmingLogic() {
 
 // Handle Disarming Logic
 void handleDisarmingLogic(int minut, unsigned long iTime) {
-  printLCDFlash(F("Disarming"), F(""));
+  printLCDFromPROGMEM(disBomb);
   ring1.clear();
   ring1.show();
   ring2.clear();
@@ -210,7 +211,7 @@ void handleDisarmingLogic(int minut, unsigned long iTime) {
     if (key) keypadEvent(key);
 
     if (!demineer) {
-      printLCDFlash(F("Disarm Reset!"), F(""));
+      printLCDFromPROGMEM(disReset);
       delay(800);
       return;
     }
@@ -236,7 +237,7 @@ void handleDisarmingLogic(int minut, unsigned long iTime) {
       ring1.show();
       ring2.clear();
       ring2.show();
-      printLCDFlash(F("Bomb Disarmed!"), F("Game Over!"));
+      printLCDFromPROGMEM(bombDis), (gameOverText);
       mosfetEnable = true;
       activateMosfet_2();
       delay(10000);
